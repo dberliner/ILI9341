@@ -13,33 +13,44 @@
  * @tested      AVR Atmega328p
  *
  * @depend      font
- * ---------------------------------------------------------------+
- * @interface   8080-I Series Parallel Interface
- * @pins        5V, 3.3V -> NC, GND, RST, CS, RS, WR, RD, D[7:0] 
  *
  */
-
-#include <avr/pgmspace.h>
 
 #ifndef __ILI9341_H__
 #define __ILI9341_H__
 
-  // HARDWARE DEFINITION
-  // 
-  // Data
+#include <stdint.h>
+#include <stddef.h>
+
+  // HW INTERFACE
   // ---------------------------------------------------------------
-  #define ILI9341_PORT_DATA     PORTD
-  #define ILI9341_DDR_DATA      DDRD
-  #define ILI9341_PIN_DATA      PIND
-  // Control 
-  // ---------------------------------------------------------------
-  #define ILI9341_DDR_CONTROL   DDRC
-  #define ILI9341_PORT_CONTROL  PORTC
-  #define ILI9341_PIN_RST       4
-  #define ILI9341_PIN_WR        1     // Write
-  #define ILI9341_PIN_RS        2     // Register Select -> D/C
-  #define ILI9341_PIN_CS        3     // Chip Select
-  #define ILI9341_PIN_RD        0     // Read
+  /* These enums are named verbosely becuase different boards will have different active levels and the required behavior isn't obvious */
+  typedef enum {
+    RESET_HIGH_NOTSET,
+    RESET_LOW_SET
+  } ili9341_reset_e;
+
+  typedef enum {
+    DC_LOW_CMD,
+    DC_HIGH_DATA
+  } ili9341_dc_e;
+
+  typedef enum {
+    CS_LOW_ON,
+    CS_HIGH_OFF
+  } ili9341_cs_e;
+
+  typedef struct {
+    void (*reset_pin)(ili9341_reset_e);
+    void (*dc_pin)(ili9341_dc_e);
+    void (*cs_pin)(ili9341_cs_e);
+    void (*delay)(uint32_t);
+    void (*sendbyte)(uint8_t);
+    void (*commit)(void *_unused);
+  } ili9341_hw_intf_t;
+
+  void ili9341_set_hw_intf(const ili9341_hw_intf_t *hw_intf);
+
 
   // COMMAND DEFINITION
   // ---------------------------------------------------------------
@@ -122,20 +133,6 @@
   #define ILI9341_LCD_3GAMMA_EN 0xF2   // 3 Gamma enable register
   #define ILI9341_LCD_PRC       0xF7   // Pump ratio control register
 
-  // set bit
-  #define SETBIT(REG, BIT)      { REG |= (1 << BIT); }
-  // clear bit
-  #define CLRBIT(REG, BIT)      { REG &= ~(1 << BIT); }
-
-  // WR Impulse - condition
-  // ---------------------------------------------------------------
-  // Write Control pulse H duration -> twrh > 15ns
-  // Write Control pulse L duration -> twrl > 15ns
-  // ---------------------------------------------------------------
-  // for 16 MHz crystal T = 62.5ns =>
-  // T pulse H -> Th = 31.25ns > twrh - condition satisfied
-  // T pulse L -> Tl = 31.25ns > twrl - condition satisfied
-  #define WR_IMPULSE()          { ILI9341_PORT_CONTROL &= ~(1 << ILI9341_PIN_WR); ILI9341_PORT_CONTROL |= (1 << ILI9341_PIN_WR); }
 
   // SOFTWARE DEFINITION
   // ---------------------------------------------------------------

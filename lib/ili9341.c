@@ -19,14 +19,12 @@
  *
  */
 
-#include <avr/pgmspace.h>
-#include <util/delay.h>
-#include <stdio.h>
+#include <stdint.h>
 #include "font.h"
 #include "ili9341.h"
 
 /** @array Init command */
-const uint8_t INIT_ILI9341[] PROGMEM = {
+const uint8_t INIT_ILI9341[] = {
   // number of initializers
   12,
 
@@ -73,9 +71,19 @@ const uint8_t INIT_ILI9341[] PROGMEM = {
 };
 
 /** @var array Chache memory char index row */
-unsigned short int _ili9341_cache_index_row = 0;
+uint8_t _ili9341_cache_index_row = 0;
 /** @var array Chache memory char index column */
-unsigned short int _ili9341_cache_index_col = 0;
+uint8_t _ili9341_cache_index_col = 0;
+
+static const ili9341_hw_intf_t *_hw_intf = NULL;
+
+void ili9341_set_hw_intf(const ili9341_hw_intf_t *hw_intf) {
+  _hw_intf = hw_intf;
+}
+
+#define _HW_HOOK(func, param) \
+  if(_hw_intf && _hw_intf->func) _hw_intf->func(param);
+
 
 /**
  * @desc    LCD init
@@ -89,16 +97,13 @@ void ILI9341_Init (void)
   // variables
   const uint8_t *commands = INIT_ILI9341;
   // number of commands
-  unsigned short int no_of_commands = pgm_read_byte(commands++);
+  uint8_t no_of_commands = *(commands++);
   // arguments
   char no_of_arguments;
   // command
   char command;
   // delay
-  unsigned short int delay;
-
-  // Init ports
-  ILI9341_InitPorts();
+  uint8_t delay;
 
   // Init hardware reset
   ILI9341_HWReset();
@@ -106,11 +111,11 @@ void ILI9341_Init (void)
   // loop throuh commands
   while (no_of_commands--) {
     // number of arguments
-    no_of_arguments = pgm_read_byte(commands++);
+    no_of_arguments = *(commands++);
     // delay
-    delay = pgm_read_byte(commands++);
+    delay = *(commands++);
     // command
-    command = pgm_read_byte(commands++);
+    command = *(commands++);
     // send command
     // -------------------------    
     ILI9341_TransmitCmmd(command);
@@ -118,38 +123,13 @@ void ILI9341_Init (void)
     // -------------------------
     while (no_of_arguments--) {
       // send arguments
-      ILI9341_Transmit8bitData(pgm_read_byte(commands++));
+      ILI9341_Transmit8bitData(*(commands++));
     }
     // delay
-    ILI9341_Delay(delay);
+    _HW_HOOK(delay, delay*1000);
   }
   // set window -> after this function display show RAM content
   ILI9341_SetWindow(0, 0, ILI9341_MAX_X-1, ILI9341_MAX_Y-1);
-}
-
-/**
- * @desc    LCD init PORTs
- *
- * @param   void
- *
- * @return  void
- */
-void ILI9341_InitPorts (void)
-{
-  // set control pins as output
-  SETBIT(ILI9341_DDR_CONTROL, ILI9341_PIN_CS);
-  SETBIT(ILI9341_DDR_CONTROL, ILI9341_PIN_RS);
-  SETBIT(ILI9341_DDR_CONTROL, ILI9341_PIN_RD);
-  SETBIT(ILI9341_DDR_CONTROL, ILI9341_PIN_WR);
-
-  // set HIGH Level on all pins - IDLE MODE
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_CS); 
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_RS); 
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_RD); 
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_WR);
-
-  // set all pins as output
-  ILI9341_DDR_DATA = 0xFF;
 }
 
 /**
@@ -162,38 +142,20 @@ void ILI9341_InitPorts (void)
 void ILI9341_HWReset (void)
 {
   // set RESET as Output
-  SETBIT(ILI9341_DDR_CONTROL, ILI9341_PIN_RST);
+  // TODO: Does this need to be done in a pure implementation? Isn't it always output?
 
   // RESET SEQUENCE
   // --------------------------------------------
   // set Reset LOW
-  CLRBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_RST);
+  _HW_HOOK(reset_pin, RESET_LOW_SET)
+
   // delay LOW > 10us
-  _delay_ms(10);
+  _HW_HOOK(delay, 10)
   // set Reset HIGH
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_RST);
-/*
-  // Adafruit 
-  // --------------------------------------------
-  // CS Active
-  CLRBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_CS);
-  // Command Active
-  CLRBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_RS);  
+  _HW_HOOK(reset_pin, RESET_HIGH_NOTSET)
 
-  // set command on PORT
-  ILI9341_PORT_DATA = 0x00;
-  // WR strobe
-  WR_IMPULSE();
-  // WR strobe
-  WR_IMPULSE();
-  // WR strobe
-  WR_IMPULSE();
-
-  // Idle Mode
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_CS);
-*/
   // delay HIGH > 120ms
-  _delay_ms(200);  
+  _HW_HOOK(delay, 120000)
 }
 
 /**
@@ -206,9 +168,9 @@ void ILI9341_HWReset (void)
 void ILI9341_TransmitCmmd (uint8_t cmmd)
 {
   // D/C -> LOW
-  CLRBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_RS);
+  _HW_HOOK(dc_pin, DC_LOW_CMD)
   // enable chip select -> LOW
-  CLRBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_CS);
+  _HW_HOOK(cs_pin, CS_LOW_ON)
 
   // Write data / command timing diagram
   // --------------------------------------------
@@ -218,14 +180,12 @@ void ILI9341_TransmitCmmd (uint8_t cmmd)
   //      WR:   \__/
 
   // set command on PORT
-  ILI9341_PORT_DATA = cmmd;
-  // Write impulse
-  WR_IMPULSE();
+  _HW_HOOK(sendbyte, cmmd)
 
   // D/C -> HIGH
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_RS);
+  _HW_HOOK(dc_pin, DC_HIGH_DATA)
   // disable chip select -> HIGH
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_CS); 
+  _HW_HOOK(cs_pin, CS_HIGH_OFF)
 }
 
 /**
@@ -238,9 +198,9 @@ void ILI9341_TransmitCmmd (uint8_t cmmd)
 void ILI9341_Transmit8bitData (uint8_t data)
 {
   // D/C -> HIGH
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_RS);
+  _HW_HOOK(dc_pin, DC_HIGH_DATA)
   // enable chip select -> LOW
-  CLRBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_CS);
+  _HW_HOOK(cs_pin, CS_LOW_ON)
 
   // Write data / command timing diagram
   // --------------------------------------------
@@ -250,12 +210,11 @@ void ILI9341_Transmit8bitData (uint8_t data)
   //      WR:   \__/
 
   // set data on PORT
-  ILI9341_PORT_DATA = data;
-  // Write impulse
-  WR_IMPULSE();
+  _HW_HOOK(sendbyte, data)
+  _HW_HOOK(commit, NULL)
 
   // disable chip select -> HIGH
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_CS);
+  _HW_HOOK(cs_pin, CS_HIGH_OFF)
 }
 
 /**
@@ -268,9 +227,9 @@ void ILI9341_Transmit8bitData (uint8_t data)
 void ILI9341_Transmit16bitData (uint16_t data)
 {
   // D/C -> HIGH
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_RS);
+  _HW_HOOK(dc_pin, DC_HIGH_DATA)
   // enable chip select -> LOW
-  CLRBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_CS);
+  _HW_HOOK(cs_pin, CS_LOW_ON)
 
   // Write data timing diagram
   // --------------------------------------------
@@ -282,19 +241,13 @@ void ILI9341_Transmit16bitData (uint16_t data)
   // set byte data on PORT
   //   __
   // 0x0000
-  ILI9341_PORT_DATA = (uint8_t) (data >> 8);
-  // Write impulse
-  WR_IMPULSE();
 
-  // set byte data on PORT
-  //     __
-  // 0x0000
-  ILI9341_PORT_DATA = (uint8_t) data;
-  // Write impulse
-  WR_IMPULSE();
+  _HW_HOOK(sendbyte, data >> 8)
+  _HW_HOOK(sendbyte, data)
+  _HW_HOOK(commit, NULL)
 
   // disable chip select -> HIGH
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_CS);
+  _HW_HOOK(cs_pin, CS_HIGH_OFF)
 }
 
 /**
@@ -307,9 +260,9 @@ void ILI9341_Transmit16bitData (uint16_t data)
 void ILI9341_Transmit32bitData (uint32_t data)
 {
   // D/C -> HIGH
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_RS);
+  _HW_HOOK(dc_pin, DC_HIGH_DATA)
   // enable chip select -> LOW
-  CLRBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_CS);
+  _HW_HOOK(cs_pin, CS_LOW_ON)
 
   // Write data timing diagram
   // --------------------------------------------
@@ -321,33 +274,15 @@ void ILI9341_Transmit32bitData (uint32_t data)
   // set byte data on PORT
   //   __
   // 0x00000000
-  ILI9341_PORT_DATA = (uint8_t) (data >> 24);
-  // Write impulse
-  WR_IMPULSE();
 
-  // set byte data on PORT
-  //     __
-  // 0x00000000
-  ILI9341_PORT_DATA = (uint8_t) (data >> 16);
-  // Write impulse
-  WR_IMPULSE();
-
-  // set byte data on PORT
-  //       __
-  // 0x00000000
-  ILI9341_PORT_DATA = (uint8_t) (data >> 8);
-  // Write impulse
-  WR_IMPULSE();
-
-  // set byte data on PORT
-  //         __
-  // 0x00000000
-  ILI9341_PORT_DATA = (uint8_t) data;
-  // Write impulse
-  WR_IMPULSE();
+  _HW_HOOK(sendbyte, data >> 24)
+  _HW_HOOK(sendbyte, data >> 16)
+  _HW_HOOK(sendbyte, data >> 8)
+  _HW_HOOK(sendbyte, data)
+  _HW_HOOK(commit, NULL)
 
   // disable chip select -> HIGH
-  SETBIT(ILI9341_PORT_CONTROL, ILI9341_PIN_CS);
+  _HW_HOOK(cs_pin, CS_HIGH_OFF)
 }
 
 /**
@@ -672,7 +607,7 @@ char ILI9341_DrawChar (char character, uint16_t color, ILI9341_Sizes size)
     // loop through 5 bits
     while (idxCol--) {
       // read from ROM memory 
-      letter = pgm_read_byte(&FONTS[character - 32][idxCol]);
+      letter = FONTS[character - 32][idxCol];
       // loop through 8 bits
       while (idxRow--) {
         // check if bit set
@@ -694,7 +629,7 @@ char ILI9341_DrawChar (char character, uint16_t color, ILI9341_Sizes size)
     // loop through 5 bytes
     while (idxCol--) {
       // read from ROM memory 
-      letter = pgm_read_byte(&FONTS[character - 32][idxCol]);
+      letter = FONTS[character - 32][idxCol];
       // loop through 8 bits
       while (idxRow--) {
         // check if bit set
@@ -719,7 +654,7 @@ char ILI9341_DrawChar (char character, uint16_t color, ILI9341_Sizes size)
     // loop through 5 bytes
     while (idxCol--) {
       // read from ROM memory 
-      letter = pgm_read_byte(&FONTS[character - 32][idxCol]);
+      letter = FONTS[character - 32][idxCol];
       // loop through 8 bits
       while (idxRow--) {
         // check if bit set
@@ -796,6 +731,8 @@ void ILI9341_DrawString (char *str, uint16_t color, ILI9341_Sizes size)
  */
 char ILI9341_CheckPosition (uint16_t x, uint16_t y, uint16_t max_y, ILI9341_Sizes size)
 {
+  /* TODO What is this params purpose? */
+  (void) size;
   // check if coordinates is out of range
   if ((x > ILI9341_SIZE_X) && (y > max_y)) {  
     // error
@@ -840,20 +777,4 @@ char ILI9341_SetPosition (uint16_t x, uint16_t y)
   }
   // return exit
   return ILI9341_SUCCESS;
-}
-
-/**
- * @desc    Delay
- *
- * @param   uint16_t
- *
- * @return  void
- */
-void ILI9341_Delay (uint16_t time)
-{
-  // loop through real time
-  while (time--) {
-    // 1 s delay
-    _delay_ms(1);
-  }
 }
