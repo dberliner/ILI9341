@@ -7,7 +7,7 @@ their HAL into the operations.
 Detailed information are described in [Datasheet ILI9341](https://cdn-shop.adafruit.com/datasheets/ILI9341.pdf).
 
 ## Library
-C library is aimed for driving [ILI9341 2.8 TFT LCD display](#demonstration) 240x320 using 8080-I Series Parallel Interface.
+C library is aimed for driving [ILI9341 2.8 TFT LCD display](#demonstration) 240x320
 
 ## Hardware connection
 This library is platform independent and uses optional hooks. All hook are simply not called if NULL
@@ -19,10 +19,16 @@ This library is platform independent and uses optional hooks. All hook are simpl
 TODO: Make driver model make sense for async transfers eg. DMA
 
 ### Usage
-See [INSERT PARENT REPO HERE] for an example using this library on a STM32F072b discovery board
+TODO: Explain the driver here
 
 ## Links
 - [Datasheet ILI9341](https://cdn-shop.adafruit.com/datasheets/ILI9341.pdf)
+
+### Tested
+Library was tested on a **_HiLetgo ILI9341 2.8" SP TFT Dispay_** with **_STM32F072B-DISCO_**. See [ILI9341-STM32F072B](https://github.com/dberliner/ILI9341-STM32F072B) for the demonstrations implementation.
+
+## Demonstration
+<img src="img/img.jpg" />
 
 ## Acknowledgement
 - [Adafuit TFT](https://github.com/adafruit/TFTLCD-Library)
