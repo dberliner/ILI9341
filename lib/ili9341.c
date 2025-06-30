@@ -49,14 +49,14 @@ const uint8_t INIT_ILI9341[] = {
 
   // -------------------------------------------- 
   1,   0, ILI9341_MADCTL, 0x48,                                 // 0x36 -> Memory Access Control
-  1,   0, ILI9341_COLMOD, 0x55,                                 // 0x3A -> Pixel Format Set
-  2,   0, ILI9341_FRMCRN1, 0x00, 0x1B,                          // 0xB1 -> Frame Rate Control
+  1,   0, ILI9341_COLMOD, 0x55,                                 // 0x3A -> Pixel Format Set (16-bits/pixel | 16-bits/pixel)
+  2,   0, ILI9341_FRMCRN1, 0x00, 0x1B,                          // 0xB1 -> Frame Rate Control (70hz default)
 /*
   3,   0, ILI9341_DISCTRL, 0x08, 0x82, 0x27,                    // 0xB6 -> Display Function Control
   1,   0, 0xF2, 0x00,                                           // 0xF2 -> gamma function disable
   2,   0, ILI9341_GAMSET, 0x00, 0x1B,                           // 0x26 -> Gamma Set
 */
-  1,   0, ILI9341_ETMOD, 0x07,                                  // 0xB7 -> Entry Mode Set
+  1,   0, ILI9341_ETMOD, 0x07,                                  // 0xB7 -> Entry Mode Set (disable low voltage detection, normal display)
 /*  
   // Set Gamma - positive
   15,  0, ILI9341_GMCTRP1 , 0x0F, 0x31, 0x2B, 0x0C, 0x0E, 0x08, 
@@ -66,7 +66,7 @@ const uint8_t INIT_ILI9341[] = {
     0x31, 0xC1, 0x48, 0x08, 0x0F, 0x0C, 0x31, 0x36, 0x0F,
 */
   // --------------------------------------------
-  0, 150, ILI9341_SLPOUT,                                       // 0x11 -> Sleep Out
+  0, 150, ILI9341_SLPOUT,                                       // 0x11 -> Sleep Out (Turn off sleep mode)
   0, 200, ILI9341_DISPON                                        // 0x29 -> Display on
 };
 
@@ -83,6 +83,12 @@ void ili9341_set_hw_intf(const ili9341_hw_intf_t *hw_intf) {
 
 #define _HW_HOOK(func, param) \
   if(_hw_intf && _hw_intf->func) _hw_intf->func(param);
+
+/* Selects the device in data mode */
+void ILI9341_SetData(void) {
+  _HW_HOOK(dc_pin, DC_HIGH_DATA)
+  _HW_HOOK(cs_pin, CS_LOW_ON)
+}
 
 
 /**
@@ -121,10 +127,12 @@ void ILI9341_Init (void)
     ILI9341_TransmitCmmd(command);
     // send arguments
     // -------------------------
+    ILI9341_SetData();
     while (no_of_arguments--) {
       // send arguments
       ILI9341_Transmit8bitData(*(commands++));
     }
+    _HW_HOOK(commit, NULL);
     // delay
     _HW_HOOK(delay, delay*1000);
   }
@@ -160,6 +168,7 @@ void ILI9341_HWReset (void)
 
 /**
  * @desc    LCD Transmit Command
+ *          This function sends its data immediately and manipulates the D/C wire
  *
  * @param   uint8_t
  *
@@ -167,25 +176,10 @@ void ILI9341_HWReset (void)
  */
 void ILI9341_TransmitCmmd (uint8_t cmmd)
 {
-  // D/C -> LOW
   _HW_HOOK(dc_pin, DC_LOW_CMD)
-  // enable chip select -> LOW
-  _HW_HOOK(cs_pin, CS_LOW_ON)
 
-  // Write data / command timing diagram
-  // --------------------------------------------
-  //              ___
-  // D0 - D7:  __/   \__
-  //          __    __
-  //      WR:   \__/
-
-  // set command on PORT
   _HW_HOOK(sendbyte, cmmd)
-
-  // D/C -> HIGH
-  _HW_HOOK(dc_pin, DC_HIGH_DATA)
-  // disable chip select -> HIGH
-  _HW_HOOK(cs_pin, CS_HIGH_OFF)
+  _HW_HOOK(commit, NULL)
 }
 
 /**
@@ -197,24 +191,8 @@ void ILI9341_TransmitCmmd (uint8_t cmmd)
  */
 void ILI9341_Transmit8bitData (uint8_t data)
 {
-  // D/C -> HIGH
-  _HW_HOOK(dc_pin, DC_HIGH_DATA)
-  // enable chip select -> LOW
-  _HW_HOOK(cs_pin, CS_LOW_ON)
-
-  // Write data / command timing diagram
-  // --------------------------------------------
-  //              ___
-  // D0 - D7:  __/   \__
-  //          __    __
-  //      WR:   \__/
-
   // set data on PORT
   _HW_HOOK(sendbyte, data)
-  _HW_HOOK(commit, NULL)
-
-  // disable chip select -> HIGH
-  _HW_HOOK(cs_pin, CS_HIGH_OFF)
 }
 
 /**
@@ -226,28 +204,8 @@ void ILI9341_Transmit8bitData (uint8_t data)
  */
 void ILI9341_Transmit16bitData (uint16_t data)
 {
-  // D/C -> HIGH
-  _HW_HOOK(dc_pin, DC_HIGH_DATA)
-  // enable chip select -> LOW
-  _HW_HOOK(cs_pin, CS_LOW_ON)
-
-  // Write data timing diagram
-  // --------------------------------------------
-  //              ___
-  // D0 - D7:  __/   \__
-  //          __    __
-  //      WR:   \__/
-
-  // set byte data on PORT
-  //   __
-  // 0x0000
-
   _HW_HOOK(sendbyte, data >> 8)
   _HW_HOOK(sendbyte, data)
-  _HW_HOOK(commit, NULL)
-
-  // disable chip select -> HIGH
-  _HW_HOOK(cs_pin, CS_HIGH_OFF)
 }
 
 /**
@@ -259,11 +217,6 @@ void ILI9341_Transmit16bitData (uint16_t data)
  */
 void ILI9341_Transmit32bitData (uint32_t data)
 {
-  // D/C -> HIGH
-  _HW_HOOK(dc_pin, DC_HIGH_DATA)
-  // enable chip select -> LOW
-  _HW_HOOK(cs_pin, CS_LOW_ON)
-
   // Write data timing diagram
   // --------------------------------------------
   //              ___
@@ -279,10 +232,6 @@ void ILI9341_Transmit32bitData (uint32_t data)
   _HW_HOOK(sendbyte, data >> 16)
   _HW_HOOK(sendbyte, data >> 8)
   _HW_HOOK(sendbyte, data)
-  _HW_HOOK(commit, NULL)
-
-  // disable chip select -> HIGH
-  _HW_HOOK(cs_pin, CS_HIGH_OFF)
 }
 
 /**
@@ -308,11 +257,15 @@ char ILI9341_SetWindow (uint16_t xs, uint16_t ys, uint16_t xe, uint16_t ye)
   // set column
   ILI9341_TransmitCmmd(ILI9341_CASET);
   // set column -> set column
+  ILI9341_SetData();
   ILI9341_Transmit32bitData(((uint32_t) xs << 16) | xe);
+  _HW_HOOK(commit, NULL)
   // set page
   ILI9341_TransmitCmmd(ILI9341_PASET);
   // set page -> high byte first
+  ILI9341_SetData();
   ILI9341_Transmit32bitData(((uint32_t) ys << 16) | ye);
+  _HW_HOOK(commit, NULL)
   // success
   return ILI9341_SUCCESS;
 }
@@ -336,7 +289,9 @@ char ILI9341_DrawPixel (uint16_t x, uint16_t y, uint16_t color)
   // set window
   ILI9341_SetWindow(x, y, x, y);
   // draw pixel by 565 mode
+  ILI9341_SetData();
   ILI9341_SendColor565(color, 1);
+  _HW_HOOK(commit, NULL)
   // success
   return ILI9341_SUCCESS;
 }
@@ -353,11 +308,13 @@ void ILI9341_SendColor565 (uint16_t color, uint32_t count)
 {
   // access to RAM
   ILI9341_TransmitCmmd(ILI9341_RAMWR);
+
+  ILI9341_SetData();
   // counter
-  while (count--) {
-    // write color - first colors byte
-    ILI9341_Transmit16bitData(color);
+  for (uint32_t i=0; i<count; i++) {
+    _HW_HOOK(sendpx, color)
   }
+  _HW_HOOK(commit, NULL)
 }
 
 /**
@@ -367,7 +324,7 @@ void ILI9341_SendColor565 (uint16_t color, uint32_t count)
  *
  * @return  void
  */
-void ILI9341_ClearScreen (uint16_t color)
+void ILI9341_ClearScreen (uint32_t color)
 {
   // set whole window
   ILI9341_SetWindow(0, 0, ILI9341_SIZE_X, ILI9341_SIZE_Y);
@@ -501,6 +458,7 @@ void ILI9341_DrawLine(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2, uint16
       ILI9341_DrawPixel(x1, y1, color);
     }
   }
+  _HW_HOOK(commit, NULL)
 }
 
 
@@ -536,6 +494,7 @@ char ILI9341_DrawLineHorizontal (uint16_t xs, uint16_t xe, uint16_t y, uint16_t 
   ILI9341_SetWindow(xs, y, xe, y);
   // draw pixel by 565 mode
   ILI9341_SendColor565(color, xe - xs);
+  _HW_HOOK(commit, NULL)
   // success
   return ILI9341_SUCCESS;
 }

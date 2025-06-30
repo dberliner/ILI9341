@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
   // HW INTERFACE
   // ---------------------------------------------------------------
@@ -45,7 +46,34 @@
     void (*dc_pin)(ili9341_dc_e);
     void (*cs_pin)(ili9341_cs_e);
     void (*delay)(uint32_t);
+
+    /**
+     * \brief Sends a byte to the device
+     *
+     * This function sends a byte to the device. The implementaiton is allowed to cache the data and send it in peices, or all at one via commit.
+     * Always call commit upon completion to ensure all data given to this function is passed on.
+     *
+     * \param unused Unued, pass NULL.
+     */
     void (*sendbyte)(uint8_t);
+
+    /**
+     * \brief Sends a pixel to the device
+     *
+     * This function sends a pixel to the device. The implementaiton is allowed to cache the data and send it in peices, or all at one via commit.
+     * Always call commit upon completion to ensure all data given to this function is passed on.
+     *
+     * \param unused Unued, pass NULL.
+     */
+    void (*sendpx)(uint32_t);
+
+    /**
+     * \brief Finishes a transaction
+     *
+     * This function must be called after sendpx references to ensure that all data is sent to the device
+     *
+     * \param unused Unued, pass NULL.
+     */
     void (*commit)(void *_unused);
   } ili9341_hw_intf_t;
 
@@ -143,6 +171,14 @@
   #define ILI9341_BLACK         0x0000
   #define ILI9341_WHITE         0xFFFF
   #define ILI9341_RED           0xF000
+  
+  //R[0-31] G[0-63] B[0-31]
+  #define ILI9341_RGB565(R,G,B) (B & 0x1F) | ((G & 0x3F)<<5) | ((R & 0x1F)<<11)
+  #define ILI9341_RGB565_DECODE(RGB, R, G, B) R=((RGB>>11)&0x1F); G=((RGB>>5)&0x3F); B=(RGB&0x1F);
+
+
+  //R[0-63] G[0-63] B[0-63]
+  #define ILI9341_RGB666(R,G,B) (B & 0x3F) | (G & 0x3F)<<6 | (R & 0x3F)<<12
 
   // max columns
   #define ILI9341_MAX_X         240
@@ -273,7 +309,7 @@
    *
    * @return  void
    */
-  void ILI9341_ClearScreen (uint16_t);
+  void ILI9341_ClearScreen (uint32_t);
 
   /**
    * @desc    LCD Inverse Screen
