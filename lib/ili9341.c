@@ -270,6 +270,15 @@ char ILI9341_SetWindow (uint16_t xs, uint16_t ys, uint16_t xe, uint16_t ye)
   return ILI9341_SUCCESS;
 }
 
+char ILI9341_DrawRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color) {
+  if (ILI9341_SetWindow(x, y, x+w-1, y+h-1) != ILI9341_SUCCESS) {
+  return ILI9341_ERROR;
+  }
+  ILI9341_SendColor565(color, w*h);
+  return ILI9341_SUCCESS;
+}
+
+
 /**
  * @desc    LCD Draw Pixel
  *

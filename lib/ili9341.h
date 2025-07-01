@@ -292,6 +292,19 @@
   void ILI9341_SendColor565 (uint16_t, uint32_t);
 
   /**
+   * @desc    LCD Draw Rectangle
+   *
+   * @param   uint16_t x Left top starting pos
+   * @param   uint16_t y Left top starting pos
+   * @param   uint16_t Width in px
+   * @param   uint16_t Height in px
+   * @param   uint16_t color in 565 format
+   *
+   * @return  char status
+   */
+  char ILI9341_DrawRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+
+  /**
    * @desc    LCD Draw Pixel
    *
    * @param   uint16_t
