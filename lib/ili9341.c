@@ -531,9 +531,54 @@ char ILI9341_DrawLineVertical (uint16_t x, uint16_t ys, uint16_t ye, uint16_t co
   ILI9341_SetWindow(x, ys, x, ye);
   // draw pixel by 565 mode
   ILI9341_SendColor565(color, ye - ys);
+  _HW_HOOK(commit, NULL)
   // success
   return ILI9341_SUCCESS;
 }
+
+#define _FONT_BIT(ch, row,col) (FONTS[ch - 32][col] & 1<<row)
+
+char ILI9341_DrawCharFast (char character, uint16_t text_color, uint8_t text_scale, uint16_t bg_color) {
+  // variables
+  uint8_t idxCol, idxRow;
+  // check if character is out of range
+  if ((character < 0x20) &&
+      (character > 0x7f)) {
+    // out of range
+    return 0;
+  }
+  // last column of character array - 5 columns
+  idxCol = CHARS_COLS_LENGTH * text_scale;
+  // last row of character array - 8 rows / bits
+  idxRow = CHARS_ROWS_LENGTH * text_scale;
+
+  // loop through 5 bits
+  ILI9341_SetWindow(
+    _ili9341_cache_index_col,
+    _ili9341_cache_index_row,
+    _ili9341_cache_index_col + idxCol-1 + text_scale,
+    _ili9341_cache_index_row + idxRow-1);
+
+  ILI9341_TransmitCmmd(ILI9341_RAMWR);
+
+  ILI9341_SetData();
+
+  for (int i=0; i<idxRow; i++) {
+    for (int j=0; j<idxCol; j++) {
+      bool text_bit = _FONT_BIT(character, i/text_scale, j/text_scale) != 0;
+      _HW_HOOK(sendpx, text_bit ? text_color : bg_color)
+    }
+    for (int j=0; j<text_scale; j++) {
+      _HW_HOOK(sendpx, bg_color)
+    }
+  }
+  // update x position
+  _ili9341_cache_index_col += idxCol + text_scale ;
+  _HW_HOOK(commit, NULL)
+  // return exit
+  return ILI9341_SUCCESS;
+}
+#undef _FONT_BIT
 
 /**
  * @desc    Draw character 2x larger
@@ -635,8 +680,40 @@ char ILI9341_DrawChar (char character, uint16_t color, ILI9341_Sizes size)
     // update x position *2
     _ili9341_cache_index_col += (CHARS_COLS_LENGTH << 1) + 2;
   }
+  _HW_HOOK(commit, NULL)
   // return exit
   return ILI9341_SUCCESS;
+}
+
+
+void ILI9341_DrawStringFast (char *str, uint16_t text_color, uint8_t size, uint16_t bg_color)
+{
+  // variables
+  unsigned int i = 0;
+  char check;
+  uint16_t delta_y;
+  uint16_t max_y_pos;
+  uint16_t new_x_pos;
+  uint16_t new_y_pos;
+
+  // loop through character of string
+  while (str[i] != '\0') {
+    // max x position character
+    new_x_pos = _ili9341_cache_index_col + CHARS_COLS_LENGTH*size;
+    // delta y
+    delta_y = CHARS_ROWS_LENGTH*size;
+    // max y position character
+    new_y_pos = _ili9341_cache_index_row + delta_y;
+    // max y pos
+    max_y_pos = ILI9341_SIZE_Y - delta_y;
+    // control if will be in range
+    check = ILI9341_CheckPosition(new_x_pos, new_y_pos, max_y_pos, size);
+    // update position
+    if (ILI9341_SUCCESS == check) {
+      // read characters and increment index
+      ILI9341_DrawCharFast(str[i++], text_color, size, bg_color);
+    }
+  }
 }
 
 /**

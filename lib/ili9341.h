@@ -408,6 +408,20 @@
    */
   char ILI9341_SetPosition(uint16_t, uint16_t);
 
+    /**
+   * @desc    Draws a string with background.
+   *
+   *          Drawing the text as a full block is far faster due to the lack of
+   *          D/C switches and small transfers required.
+   *
+   * @param   char* -> string
+   * @param   uint16_t -> color
+   * @param   ILI9341_Sizes -> size
+   *
+   * @return  void
+   */
+  void ILI9341_DrawStringFast (char *str, uint16_t text_color, uint8_t size, uint16_t bg_color);
+
   /**
    * @desc    Draw string
    *
