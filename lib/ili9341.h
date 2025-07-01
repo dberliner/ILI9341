@@ -58,16 +58,6 @@
     void (*sendbyte)(uint8_t);
 
     /**
-     * \brief Sends a pixel to the device
-     *
-     * This function sends a pixel to the device. The implementaiton is allowed to cache the data and send it in peices, or all at one via commit.
-     * Always call commit upon completion to ensure all data given to this function is passed on.
-     *
-     * \param unused Unued, pass NULL.
-     */
-    void (*sendpx)(uint32_t);
-
-    /**
      * \brief Finishes a transaction
      *
      * This function must be called after sendpx references to ensure that all data is sent to the device

@@ -23,6 +23,9 @@
 #include "font.h"
 #include "ili9341.h"
 
+/* Forward declarations */
+static void writePx(uint32_t color565);
+
 /** @array Init command */
 const uint8_t INIT_ILI9341[] = {
   // number of initializers
@@ -321,7 +324,7 @@ void ILI9341_SendColor565 (uint16_t color, uint32_t count)
   ILI9341_SetData();
   // counter
   for (uint32_t i=0; i<count; i++) {
-    _HW_HOOK(sendpx, color)
+    writePx(color);
   }
   _HW_HOOK(commit, NULL)
 }
@@ -545,6 +548,25 @@ char ILI9341_DrawLineVertical (uint16_t x, uint16_t ys, uint16_t ye, uint16_t co
   return ILI9341_SUCCESS;
 }
 
+static void writePx(uint32_t color565) {
+  uint8_t R=0, G=0, B=0;
+  uint8_t colorBuf[2] = { 0 };
+
+  /* TODO Support 666 color scheme if that's what is enabled */
+  ILI9341_RGB565_DECODE(color565, R, G, B)
+  /* Sent first: The entire R buffer (5 bits) */
+  colorBuf[0] = R<<3;
+  /* Sent second: The most significant bits of G (3 bits) */
+  colorBuf[0] |= (G>>3) & 0x7;
+  /* Sent third: The least significant bits of G (3 bits) */
+  colorBuf[1] = (G & 0x7)<<5;
+  /* Sent fourth: The B buffer (5 bits) */
+  colorBuf[1] |= B & 0x1F;
+
+  ILI9341_Transmit8bitData(colorBuf[0]);
+  ILI9341_Transmit8bitData(colorBuf[1]);
+}
+
 #define _FONT_BIT(ch, row,col) (FONTS[ch - 32][col] & 1<<row)
 
 char ILI9341_DrawCharFast (char character, uint16_t text_color, uint8_t text_scale, uint16_t bg_color) {
@@ -575,10 +597,10 @@ char ILI9341_DrawCharFast (char character, uint16_t text_color, uint8_t text_sca
   for (int i=0; i<idxRow; i++) {
     for (int j=0; j<idxCol; j++) {
       bool text_bit = _FONT_BIT(character, i/text_scale, j/text_scale) != 0;
-      _HW_HOOK(sendpx, text_bit ? text_color : bg_color)
+      writePx(text_bit ? text_color : bg_color);
     }
     for (int j=0; j<text_scale; j++) {
-      _HW_HOOK(sendpx, bg_color)
+      writePx(bg_color);
     }
   }
   // update x position

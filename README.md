@@ -13,10 +13,9 @@ C library is aimed for driving [ILI9341 2.8 TFT LCD display](#demonstration) 240
 This library is platform independent and uses optional hooks. All hook are simply not called if NULL
 - reset_pin, dc_pin, cs_pin | Set the respective pins
 - delay | Delay microseconds
-- sendbyte | Writes a single byte of data
-- commit | Ran after an entire command is sent via sentbyte. Optional if sendbyte actually sends over the wire and is blocking
+- sendbyte | Writes a single byte of data. The implementation does not have to immediately send the data and may buffer it for sending in bulk.
+- commit | Send all remaining data in the buffer
 
-TODO: Make driver model make sense for async transfers eg. DMA
 
 ### Usage
 TODO: Explain the driver here
