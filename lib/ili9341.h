@@ -62,9 +62,19 @@
      *
      * This function must be called after sendpx references to ensure that all data is sent to the device
      *
-     * \param unused Unued, pass NULL.
+     * \param unused Unused, pass NULL.
      */
     void (*commit)(void *_unused);
+
+    /**
+     * \brief Blocks until any current TX operations are done
+     *
+     * This function blocks during concurrent (IE DMA) transactions so control lines are not changed mid-transactions.
+     * If SPI TX calls are blocking this function does not need to be implemented.
+     *
+     * \param unused Unused, pass NULL.
+     */
+    void (*barrier)(void *_unused);
   } ili9341_hw_intf_t;
 
   void ili9341_set_hw_intf(const ili9341_hw_intf_t *hw_intf);

@@ -89,6 +89,7 @@ void ili9341_set_hw_intf(const ili9341_hw_intf_t *hw_intf) {
 
 /* Selects the device in data mode */
 void ILI9341_SetData(void) {
+  _HW_HOOK(barrier, NULL)
   _HW_HOOK(dc_pin, DC_HIGH_DATA)
   _HW_HOOK(cs_pin, CS_LOW_ON)
 }
@@ -179,8 +180,8 @@ void ILI9341_HWReset (void)
  */
 void ILI9341_TransmitCmmd (uint8_t cmmd)
 {
+  _HW_HOOK(barrier, NULL)
   _HW_HOOK(dc_pin, DC_LOW_CMD)
-
   _HW_HOOK(sendbyte, cmmd)
   _HW_HOOK(commit, NULL)
 }
