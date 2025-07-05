@@ -42,16 +42,34 @@
   } ili9341_cs_e;
 
   typedef struct {
+    uint16_t len;
+    uint8_t *buf;
+  } ili9341_buf_t;
+
+  typedef struct {
     void (*reset_pin)(ili9341_reset_e);
     void (*dc_pin)(ili9341_dc_e);
     void (*cs_pin)(ili9341_cs_e);
     void (*delay)(uint32_t);
 
     /**
+     * \brief Sends a buffer to the device
+     *
+     * This function sends the contents of the passed buffer. No internal buffering is performed and the entire buffer is send.
+     * This is intended for use in DMA transmissions where a sequence of pixels needs to be sent repeatedly, maximizing DMA transfers
+     * in favor of continually writing to system memory.
+     *
+     * The address at buf->buf should be assumed as "in use" (IE by a DMA transfer) until barrier is called.
+     *
+     * \param buf A pointer to an ili9341_buf struct
+     */
+    void (*sendbuf)(const ili9341_buf_t*);
+
+    /**
      * \brief Sends a byte to the device
      *
-     * This function sends a byte to the device. The implementaiton is allowed to cache the data and send it in peices, or all at one via commit.
-     * Always call commit upon completion to ensure all data given to this function is passed on.
+     * This function sends a byte to the device. Implementations are allowed to buffer the data to send it in bulk. Call commit to ensure that all bytes have
+     * actually been sent.
      *
      * \param unused Unued, pass NULL.
      */
@@ -60,7 +78,7 @@
     /**
      * \brief Finishes a transaction
      *
-     * This function must be called after sendpx references to ensure that all data is sent to the device
+     * This function must be called after sendbyte references to ensure that all data is sent to the device
      *
      * \param unused Unused, pass NULL.
      */
@@ -70,7 +88,7 @@
      * \brief Blocks until any current TX operations are done
      *
      * This function blocks during concurrent (IE DMA) transactions so control lines are not changed mid-transactions.
-     * If SPI TX calls are blocking this function does not need to be implemented.
+     * If SPI the send calls are blocking this function does not need to be implemented.
      *
      * \param unused Unused, pass NULL.
      */
@@ -173,9 +191,16 @@
   #define ILI9341_RED           0xF000
   
   //R[0-31] G[0-63] B[0-31]
-  #define ILI9341_RGB565(R,G,B) (B & 0x1F) | ((G & 0x3F)<<5) | ((R & 0x1F)<<11)
-  #define ILI9341_RGB565_DECODE(RGB, R, G, B) R=((RGB>>11)&0x1F); G=((RGB>>5)&0x3F); B=(RGB&0x1F);
-
+  #define ILI9341_RGB565(R,G,B) ((B & 0x1F) | ((G & 0x3F)<<5) | ((R & 0x1F)<<11))
+  #define RGBR(RGB) ((RGB>>11)&0x1F)
+  #define RGBG(RGB) ((RGB>>5)&0x3F)
+  #define RGBB(RGB) (RGB&0x1F)
+  #define ILI9341_RGB565_DECODE(RGB, R, G, B) R=RGBR(RGB); G=RGBG(RGB); B=RGBB(RGB);
+  #define ILI9341_RGB565_DECODETOBUF(OUTBUF, RGB)          \
+          ((uint8_t*)OUTBUF)[0] = RGBR(RGB)<<3;            \
+          ((uint8_t*)OUTBUF)[0] |= (RGBG(RGB)>>3) & 0x7;   \
+          ((uint8_t*)OUTBUF)[1] = (RGBG(RGB)& 0x7)<<5;     \
+          ((uint8_t*)OUTBUF)[1] |= RGBB(RGB) & 0x1F;
 
   //R[0-63] G[0-63] B[0-63]
   #define ILI9341_RGB666(R,G,B) (B & 0x3F) | (G & 0x3F)<<6 | (R & 0x3F)<<12
@@ -454,5 +479,22 @@
    * @return  void
    */
   void ILI9341_Delay (uint16_t);
+
+  /**
+   * @desc    Writes a pattern of caller managed memory to a rectangular section of the screen
+   *          This processs is much faster than sending individual pixels or requiring library
+   *          controlled memory caching, but at the expense of requiring the caller to handle
+   *          their own memory.
+   *
+   * @param   uint8_t* pattern_buf The buffer to continously write to the video memory
+   * @param   uint16_t len The length to copy from pattern_buf
+   * @param   x The starting X coordinate
+   * @param   y The starting Y coordinate
+   * @param   w The width of the draw in pixels (1 corresponds to a single pixel)
+   * @param   h The height of the darw in pixels (1 corresponds to a single pixel)
+   *
+   * @return  void
+   */
+void ILI9341_WritePatternRect(uint8_t *pattern_buf, uint16_t len, uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 
 #endif

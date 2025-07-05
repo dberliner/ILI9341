@@ -289,13 +289,14 @@ char ILI9341_DrawRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t c
 
 
 /**
- * @desc    LCD Draw Pixel
+ * @desc    Sends a single pixel to the LCD. This process has a substantial amount of overhead per pixel
+ *          and should be avoided.
  *
- * @param   uint16_t
- * @param   uint16_t
- * @param   uint16_t
+ * @param   uint16_t x The X position of the pixel
+ * @param   uint16_t y The y position of the pixel
+ * @param   uint16_t color The 565 color of the pixel
  *
- * @return  char
+ * @return  ILI9341_SUCCESS on success, ILI9341_ERROR on bad params
  */
 char ILI9341_DrawPixel (uint16_t x, uint16_t y, uint16_t color)
 {
@@ -307,8 +308,9 @@ char ILI9341_DrawPixel (uint16_t x, uint16_t y, uint16_t color)
   // set window
   ILI9341_SetWindow(x, y, x, y);
   // draw pixel by 565 mode
+  ILI9341_TransmitCmmd(ILI9341_RAMWR);
   ILI9341_SetData();
-  ILI9341_SendColor565(color, 1);
+  writePx(color);
   _HW_HOOK(commit, NULL)
   // success
   return ILI9341_SUCCESS;
@@ -336,7 +338,7 @@ void ILI9341_SendColor565 (uint16_t color, uint32_t count)
 }
 
 /**
- * @desc    Clear screen
+ * @desc    Clears the screen to a set color.
  *
  * @param   uint16_t color
  *
@@ -348,6 +350,27 @@ void ILI9341_ClearScreen (uint32_t color)
   ILI9341_SetWindow(0, 0, ILI9341_SIZE_X, ILI9341_SIZE_Y);
   // draw individual pixels
   ILI9341_SendColor565(color, ILI9341_CACHE_MEM);
+}
+
+void ILI9341_WritePatternRect(uint8_t *pattern_buf, uint16_t len, uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+  if (!pattern_buf || !len || !w || !h) {
+    return;
+  }
+
+  ili9341_buf_t buf = {.buf=pattern_buf, .len=len};
+  ILI9341_SetWindow(x, y, x+w-1, y+h-1);
+  /* Draw the screen based on repeating the buffer */
+
+  ILI9341_TransmitCmmd(ILI9341_RAMWR);
+  ILI9341_SetData();
+  for (unsigned i=0; i<w*h*2; i+=len) {
+    /* Avoid oversending on the last pass if the buffers are not alligned */
+    if (i+len > w*h*2) {
+      buf.len = w*h*2 - i;
+    }
+    _HW_HOOK(sendbuf, &buf)
+  }
+  _HW_HOOK(barrier, NULL)
 }
 
 /**
@@ -555,19 +578,10 @@ char ILI9341_DrawLineVertical (uint16_t x, uint16_t ys, uint16_t ye, uint16_t co
 }
 
 static void writePx(uint32_t color565) {
-  uint8_t R=0, G=0, B=0;
   uint8_t colorBuf[2] = { 0 };
 
   /* TODO Support 666 color scheme if that's what is enabled */
-  ILI9341_RGB565_DECODE(color565, R, G, B)
-  /* Sent first: The entire R buffer (5 bits) */
-  colorBuf[0] = R<<3;
-  /* Sent second: The most significant bits of G (3 bits) */
-  colorBuf[0] |= (G>>3) & 0x7;
-  /* Sent third: The least significant bits of G (3 bits) */
-  colorBuf[1] = (G & 0x7)<<5;
-  /* Sent fourth: The B buffer (5 bits) */
-  colorBuf[1] |= B & 0x1F;
+  ILI9341_RGB565_DECODETOBUF(colorBuf, color565)
 
   ILI9341_Transmit8bitData(colorBuf[0]);
   ILI9341_Transmit8bitData(colorBuf[1]);
