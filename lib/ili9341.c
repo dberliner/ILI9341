@@ -157,6 +157,11 @@ void ILI9341_HWReset (void)
   // TODO: Does this need to be done in a pure implementation? Isn't it always output?
 
   // RESET SEQUENCE
+  // set CS HIGH
+  _HW_HOOK(cs_pin, CS_HIGH_OFF)
+  _HW_HOOK(delay, 1000)
+  _HW_HOOK(cs_pin, CS_LOW_ON)
+  _HW_HOOK(delay, 1000)
   // --------------------------------------------
   // set Reset LOW
   _HW_HOOK(reset_pin, RESET_LOW_SET)
