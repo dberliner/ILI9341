@@ -481,6 +481,68 @@
   void ILI9341_Delay (uint16_t);
 
   /**
+   * @desc    Renders a bitmap into pixel data in a memory buffer, scaling if the src and dst sizes are different
+   *
+   * @param   uint8_t* dst The buffer to write into. Must be at least dst_w*dst_h*2 bytes long because each pixel is two bytes
+   * @param   uint16_t dst_w The width of the destination rectangle
+   * @param   uint16_t dst_h The height of the destination rectangle
+   * @param   uint8_t src The buffer of the bitmap being read from
+   * @param   uint16_t src_w The width of the source rectangle
+   * @param   uint16_t src_h The height of the source rectangle
+   * @param   fg The foreground color (drawn if the corresponding bit is set)
+   * @param   bg The background color (drawn if the corresponding bit is not set)
+   *
+   * @return  void
+   */
+  void ILI9341_RenderScaledBitmap(uint8_t* dst, uint16_t dst_w, uint16_t dst_h, const uint8_t* src, uint16_t src_w, uint16_t src_h, uint16_t fg565, uint16_t bg565);
+
+  /**
+   * @desc    Renders a bitmap into pixel data in a memory buffer, scaling if the src and dst sizes are different.
+   *          This function is identical to ILI9341_RenderScaledBitmap except that the bitmap stores data in column-major order
+   *
+   * @param   uint8_t* dst The buffer to write into. Must be at least dst_w*dst_h*2 bytes long because each pixel is two bytes
+   * @param   uint16_t dst_w The width of the destination rectangle
+   * @param   uint16_t dst_h The height of the destination rectangle
+   * @param   uint8_t src The buffer of the bitmap being read from
+   * @param   uint16_t src_w The width of the source rectangle
+   * @param   uint16_t src_h The height of the source rectangle
+   * @param   fg The foreground color (drawn if the corresponding bit is set)
+   * @param   bg The background color (drawn if the corresponding bit is not set)
+   *
+   * @return  void
+   */
+  void ILI9341_RenderScaledBitmapColMajor(uint8_t* dst, uint16_t dst_w, uint16_t dst_h, const uint8_t* src, uint16_t src_w, uint16_t src_h, uint16_t fg565, uint16_t bg565);
+
+  /**
+   * @desc    Renders a bitmap into pixel data in a memory buffer without scaling.
+   *
+   * @param   uint8_t* render_out The buffer to write into. Must be at least w*h*2 bytes long because each pixel is two bytes
+   * @param   uint8_t* bitmap The buffer of the bitmap being read from
+   * @param   uint16_t w The width of the destination rectangle
+   * @param   uint16_t h The height of the destination rectangle
+   * @param   fg The foreground color (drawn if the corresponding bit is set)
+   * @param   bg The background color (drawn if the corresponding bit is not set)
+   *
+   * @return  void
+   */
+  void ILI9341_RenderBitmap(uint8_t* render_out, const uint8_t* bitmap, uint16_t w, uint16_t h, uint16_t fg565, uint16_t bg565);
+
+  /**
+   * @desc    Renders a bitmap into pixel data in a memory buffer without scaling.
+   *          This function is identical to ILI9341_RenderBitmap except that the bitmap stores data in column-major order
+   *
+   * @param   uint8_t* render_out The buffer to write into. Must be at least w*h*2 bytes long because each pixel is two bytes
+   * @param   uint8_t* bitmap The buffer of the bitmap being read from
+   * @param   uint16_t w The width of the destination rectangle
+   * @param   uint16_t h The height of the destination rectangle
+   * @param   fg The foreground color (drawn if the corresponding bit is set)
+   * @param   bg The background color (drawn if the corresponding bit is not set)
+   *
+   * @return  void
+   */
+  void ILI9341_RenderBitmapColMajor(uint8_t* render_out, const uint8_t* bitmap, uint16_t w, uint16_t h, uint16_t fg565, uint16_t bg565);
+
+  /**
    * @desc    Writes a pattern of caller managed memory to a rectangular section of the screen
    *          This processs is much faster than sending individual pixels or requiring library
    *          controlled memory caching, but at the expense of requiring the caller to handle
@@ -495,6 +557,6 @@
    *
    * @return  void
    */
-void ILI9341_WritePatternRect(uint8_t *pattern_buf, uint16_t len, uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+  void ILI9341_WritePatternRect(uint8_t *pattern_buf, uint16_t len, uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 
 #endif

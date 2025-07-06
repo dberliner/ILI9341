@@ -865,3 +865,47 @@ char ILI9341_SetPosition (uint16_t x, uint16_t y)
   // return exit
   return ILI9341_SUCCESS;
 }
+
+static bool _get_bit_from_src_rowmajor(const uint8_t* src, uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+#define BITN(x,y) (w*y+x)
+  return (src[BITN(x,y)/8] & ((0x1<<(BITN(x,y)) % 8))) != 0;
+#undef BITN
+}
+
+static bool _get_bit_from_src_colmajor(const uint8_t* src, uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+#define BITN(x,y) (h*x+y)
+  return (src[BITN(x,y)/8] & ((0x1<<(BITN(x,y)) % 8))) != 0;
+#undef BITN
+}
+
+static void _RenderScaledBitmap(uint8_t* dst, uint16_t dst_w, uint16_t dst_h, const uint8_t* src, uint16_t src_w, uint16_t src_h, uint16_t fg565, uint16_t bg565, bool (*getbit)(const uint8_t* buf, uint16_t x, uint16_t y, uint16_t w, uint16_t h)) {
+  /* Zero out the dst buffer */
+  for (int i=0; i<dst_h; i++) {
+    for (int j=0; j<dst_w; j++) {
+      uint16_t src_x = (j*src_w)/dst_w;
+      uint16_t src_y = (i*src_h)/dst_h;
+      uint8_t* render_out_offset = dst+(i*dst_w+j)*2;
+      if (getbit(src, src_x, src_y, src_w, src_h)) {
+        ILI9341_RGB565_DECODETOBUF(render_out_offset, fg565);
+      } else {
+        ILI9341_RGB565_DECODETOBUF(render_out_offset, bg565);
+      }
+    }
+  }
+}
+
+void ILI9341_RenderScaledBitmap(uint8_t* dst, uint16_t dst_w, uint16_t dst_h, const uint8_t* src, uint16_t src_w, uint16_t src_h, uint16_t fg565, uint16_t bg565) {
+  _RenderScaledBitmap(dst, dst_w, dst_h, src, src_w, src_h, fg565, bg565, _get_bit_from_src_rowmajor);
+}
+
+void ILI9341_RenderScaledBitmapColMajor(uint8_t* dst, uint16_t dst_w, uint16_t dst_h, const uint8_t* src, uint16_t src_w, uint16_t src_h, uint16_t fg565, uint16_t bg565) {
+  _RenderScaledBitmap(dst, dst_w, dst_h, src, src_w, src_h, fg565, bg565, _get_bit_from_src_colmajor);
+}
+
+void ILI9341_RenderBitmap(uint8_t* render_out, const uint8_t* bitmap, uint16_t w, uint16_t h, uint16_t fg565, uint16_t bg565) {
+  ILI9341_RenderScaledBitmap(render_out, w, h, bitmap, w, h, fg565, bg565);
+}
+
+void ILI9341_RenderBitmapColMajor(uint8_t* render_out, const uint8_t* bitmap, uint16_t w, uint16_t h, uint16_t fg565, uint16_t bg565) {
+  ILI9341_RenderScaledBitmapColMajor(render_out, w, h, bitmap, w, h, fg565, bg565);
+}
